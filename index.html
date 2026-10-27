@@ -1,0 +1,165 @@
+﻿```html
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>آزمایش Mini App ایتا</title>
+
+    <!-- SDK رسمی ایتا -->
+    <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
+
+    <style>
+        body {
+            font-family: Tahoma, Arial, sans-serif;
+            max-width: 650px;
+            margin: 30px auto;
+            padding: 20px;
+            line-height: 2;
+        }
+
+        button {
+            padding: 12px 18px;
+            margin: 8px 0;
+            cursor: pointer;
+        }
+
+        pre {
+            direction: ltr;
+            text-align: left;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            background: #f2f2f2;
+            padding: 12px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>آزمایش اتصال به ایتا</h2>
+
+    <p id="environment">در حال بررسی محیط اجرا...</p>
+    <p id="initDataStatus"></p>
+
+    <button id="contactButton" disabled>
+        درخواست اشتراک شماره تماس
+    </button>
+
+    <h3>نتیجه آزمایش</h3>
+    <pre id="result">هنوز آزمایشی انجام نشده است.</pre>
+
+    <script>
+        const environment = document.getElementById("environment");
+        const initDataStatus = document.getElementById("initDataStatus");
+        const contactButton = document.getElementById("contactButton");
+        const result = document.getElementById("result");
+
+        const webApp = window.Eitaa?.WebApp;
+
+        // اطلاعات خام فقط در حافظه صفحه نگهداری می‌شوند.
+        // در این مرحله آن‌ها را به سرور ارسال نمی‌کنیم.
+        let rawInitData = "";
+
+        function showResult(data) {
+            result.textContent = JSON.stringify(data, null, 2);
+        }
+
+        if (!webApp) {
+            environment.textContent =
+                "SDK ایتا در دسترس نیست. صفحه را داخل Mini App ایتا باز کنید.";
+
+            initDataStatus.textContent =
+                "دریافت initData هنوز ممکن نیست.";
+        } else {
+            webApp.ready();
+
+            rawInitData = webApp.initData || "";
+
+            environment.textContent =
+                "SDK ایتا شناسایی شد.";
+
+            initDataStatus.textContent = rawInitData
+                ? `initData دریافت شد؛ طول رشته: ${rawInitData.length} کاراکتر`
+                : "initData خالی است؛ نحوه باز کردن Mini App را بررسی کنید.";
+
+            contactButton.disabled = typeof webApp.requestContact !== "function";
+
+            showResult({
+                sdkAvailable: true,
+                initDataReceived: rawInitData.length > 0,
+                initDataLength: rawInitData.length,
+                initDataKeys: rawInitData
+                    ? [...new URLSearchParams(rawInitData).keys()]
+                    : [],
+                requestContactAvailable:
+                    typeof webApp.requestContact === "function"
+            });
+        }
+
+        contactButton.addEventListener("click", () => {
+            if (!webApp || typeof webApp.requestContact !== "function") {
+                showResult({
+                    success: false,
+                    message: "قابلیت requestContact در دسترس نیست."
+                });
+                return;
+            }
+
+            result.textContent = "منتظر پاسخ ایتا هستیم...";
+
+            webApp.requestContact((success, contactData) => {
+                if (!success) {
+                    showResult({
+                        success: false,
+                        message: "کاربر درخواست اشتراک تماس را تأیید نکرد."
+                    });
+                    return;
+                }
+
+                // رشته اصلی را تغییر نمی‌دهیم؛ فقط یک نسخه
+                // برای نمایش امن در صفحه می‌سازیم.
+                const safeData = {
+                    success: true,
+                    contactDataType: typeof contactData,
+                    contactDataLength:
+                        typeof contactData === "string"
+                            ? contactData.length
+                            : null
+                };
+
+                if (typeof contactData === "string") {
+                    const params = new URLSearchParams(contactData);
+
+                    safeData.fields = [...params.keys()];
+
+                    safeData.values = {};
+
+                    for (const [key, value] of params.entries()) {
+                        if (/phone/i.test(key)) {
+                            safeData.values[key] =
+                                value.length > 4
+                                    ? "*".repeat(value.length - 4) +
+                                      value.slice(-4)
+                                    : "****";
+                        } else if (/hash|signature/i.test(key)) {
+                            safeData.values[key] = "[مخفی]";
+                        } else {
+                            safeData.values[key] = value;
+                        }
+                    }
+                } else {
+                    safeData.message =
+                        "پاسخ رشته‌ای نیست؛ شکل داده را در محیط امن بررسی کنید.";
+                }
+
+                showResult(safeData);
+
+                // فعلاً contactData را به API ارسال نکن.
+            });
+        });
+    </script>
+</body>
+</html>
+```
