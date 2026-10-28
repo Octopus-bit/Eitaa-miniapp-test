@@ -184,6 +184,31 @@
             result.textContent = "منتظر پاسخ ایتا هستیم...";
 
             webApp.requestContact((success, contactData) => {
+                if (!success || contactData?.status !== "sent") {
+                    showResult({
+                        success: false,
+                        message: "اشتراک شماره تماس تأیید نشد."
+                    });
+                    return;
+                }
+
+                const signedContactData = contactData.response;
+
+                showResult({
+                    success: true,
+                    status: contactData.status,
+                    signedDataType: typeof signedContactData,
+                    signedDataLength:
+                        typeof signedContactData === "string"
+                            ? signedContactData.length
+                            : null,
+                    signedDataReceived:
+                        typeof signedContactData === "string" &&
+                        signedContactData.length > 0
+                });
+            });
+
+            /*webApp.requestContact((success, contactData) => {
                 if (!success) {
                     showResult({
                         success: false,
@@ -227,7 +252,7 @@
                             ? Object.keys(contact)
                             : []
                 });
-            });
+            });*/
         });
     </script>
 </body>
