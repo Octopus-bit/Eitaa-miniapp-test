@@ -169,67 +169,99 @@
         registerButton.addEventListener("click", registerUser);
 
         // درخواست اشتراک شماره تماس از ایتا
-        contactButton.addEventListener("click", () => {
-            if (!webApp ||
-                typeof webApp.requestContact !== "function") {
-                showResult({
-                    success: false,
-                    message: "قابلیت requestContact در دسترس نیست."
-                });
-                return;
-            }
+       
+function inspectContactData(data) {
+    const sensitiveKey =
+        /phone|contact|hash|signature|token|secret|auth|user|name/i;
 
-            result.textContent = "منتظر پاسخ ایتا هستیم...";
+    function inspect(value) {
+        if (value === null) {
+            return { type: "null" };
+        }
 
-            webApp.requestContact((success, contactData) => {
-                if (!success) {
-                    showResult({
-                        success: false,
-                        message:
-                            "کاربر درخواست اشتراک تماس را تأیید نکرد."
-                    });
-                    return;
-                }
+        if (Array.isArray(value)) {
+            return {
+                type: "array",
+                length: value.length
+            };
+        }
 
-                // اطلاعات تماس کامل را نمایش نمی‌دهیم.
-                const safeData = {
-                    success: true,
-                    contactDataType: typeof contactData,
-                    contactDataLength:
-                        typeof contactData === "string"
-                            ? contactData.length
-                            : null
+        if (typeof value !== "object") {
+            return {
+                type: typeof value,
+                length: typeof value === "string"
+                    ? value.length
+                    : undefined
+            };
+        }
+
+        const fields = {};
+
+        for (const [key, item] of Object.entries(value)) {
+            if (sensitiveKey.test(key)) {
+                fields[key] = {
+                    type: item === null
+                        ? "null"
+                        : Array.isArray(item)
+                            ? "array"
+                            : typeof item,
+                    value: "[مخفی]"
                 };
+            } else if (item !== null &&
+                       typeof item === "object") {
+                fields[key] = inspect(item);
+            } else {
+                fields[key] = {
+                    type: item === null
+                        ? "null"
+                        : typeof item,
+                    value: typeof item === "boolean" ||
+                           typeof item === "number"
+                        ? item
+                        : "[مخفی]"
+                };
+            }
+        }
 
-                if (typeof contactData === "string") {
-                    const params = new URLSearchParams(contactData);
+        return {
+            type: "object",
+            fields
+        };
+    }
 
-                    safeData.fields = [...params.keys()];
-                    safeData.values = {};
+    return inspect(data);
+}
 
-                    for (const [key, value] of params.entries()) {
-                        if (/phone/i.test(key)) {
-                            safeData.values[key] =
-                                value.length > 4
-                                    ? "*".repeat(value.length - 4) +
-                                      value.slice(-4)
-                                    : "****";
-                        } else if (/hash|signature|token/i.test(key)) {
-                            safeData.values[key] = "[مخفی]";
-                        } else {
-                            safeData.values[key] = value;
-                        }
-                    }
-                } else {
-                    safeData.message =
-                        "پاسخ رشته‌ای نیست؛ ساختار آن باید جداگانه بررسی شود.";
-                }
-
-                showResult(safeData);
-
-                // در این نسخه، اطلاعات تماس به API ارسال نمی‌شود.
-            });
+contactButton.addEventListener("click", () => {
+    if (!webApp ||
+        typeof webApp.requestContact !== "function") {
+        showResult({
+            success: false,
+            message: "قابلیت requestContact در دسترس نیست."
         });
+        return;
+    }
+
+    result.textContent = "منتظر پاسخ ایتا هستیم...";
+
+    webApp.requestContact((success, contactData) => {
+        if (!success) {
+            showResult({
+                success: false,
+                message: "اشتراک شماره تماس تأیید نشد."
+            });
+            return;
+        }
+
+        showResult({
+            success: true,
+            contactDataType: typeof contactData,
+            contactDataStructure:
+                inspectContactData(contactData)
+        });
+    });
+});
+
     </script>
 </body>
 </html>
