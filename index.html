@@ -1,4 +1,4 @@
-```html
+
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -7,7 +7,6 @@
 
     <title>آزمایش Mini App ایتا</title>
 
-    <!-- SDK ایتا -->
     <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
 
     <style>
@@ -118,7 +117,8 @@
             if (!rawInitData) {
                 showResult({
                     success: false,
-                    message: "initData خالی است. Mini App را داخل ایتا باز کنید."
+                    message:
+                        "initData خالی است. Mini App را داخل ایتا باز کنید."
                 });
                 return;
             }
@@ -169,126 +169,66 @@
         registerButton.addEventListener("click", registerUser);
 
         // درخواست اشتراک شماره تماس از ایتا
-       
-function inspectContactData(data) {
-    const sensitiveKey =
-        /phone|contact|hash|signature|token|secret|auth|user|name/i;
-
-    function inspect(value) {
-        if (value === null) {
-            return { type: "null" };
-        }
-
-        if (Array.isArray(value)) {
-            return {
-                type: "array",
-                length: value.length
-            };
-        }
-
-        if (typeof value !== "object") {
-            return {
-                type: typeof value,
-                length: typeof value === "string"
-                    ? value.length
-                    : undefined
-            };
-        }
-
-        const fields = {};
-
-        for (const [key, item] of Object.entries(value)) {
-            if (sensitiveKey.test(key)) {
-                fields[key] = {
-                    type: item === null
-                        ? "null"
-                        : Array.isArray(item)
-                            ? "array"
-                            : typeof item,
-                    value: "[مخفی]"
-                };
-            } else if (item !== null &&
-                       typeof item === "object") {
-                fields[key] = inspect(item);
-            } else {
-                fields[key] = {
-                    type: item === null
-                        ? "null"
-                        : typeof item,
-                    value: typeof item === "boolean" ||
-                           typeof item === "number"
-                        ? item
-                        : "[مخفی]"
-                };
+        contactButton.addEventListener("click", () => {
+            if (
+                !webApp ||
+                typeof webApp.requestContact !== "function"
+            ) {
+                showResult({
+                    success: false,
+                    message: "قابلیت requestContact در دسترس نیست."
+                });
+                return;
             }
-        }
 
-        return {
-            type: "object",
-            fields
-        };
-    }
+            result.textContent = "منتظر پاسخ ایتا هستیم...";
 
-    return inspect(data);
-}
+            webApp.requestContact((success, contactData) => {
+                if (!success) {
+                    showResult({
+                        success: false,
+                        message: "اشتراک شماره تماس تأیید نشد."
+                    });
+                    return;
+                }
 
-contactButton.addEventListener("click", () => {
-    if (!webApp ||
-        typeof webApp.requestContact !== "function") {
-        showResult({
-            success: false,
-            message: "قابلیت requestContact در دسترس نیست."
-        });
-        return;
-    }
+                const responseUnsafe = contactData?.responseUnsafe;
+                const contact = responseUnsafe?.contact;
 
-    result.textContent = "منتظر پاسخ ایتا هستیم...";
+                // فقط نام فیلدها و وضعیت وجود آن‌ها نمایش داده می‌شود.
+                // شماره تماس، hash و initData نمایش داده نمی‌شوند.
+                showResult({
+                    success: true,
+                    status: contactData?.status,
 
-    webApp.requestContact((success, contactData) => {
-        if (!success) {
-            showResult({
-                success: false,
-                message: "اشتراک شماره تماس تأیید نشد."
+                    responseUnsafeType: typeof responseUnsafe,
+
+                    responseFields:
+                        responseUnsafe &&
+                        typeof responseUnsafe === "object"
+                            ? Object.keys(responseUnsafe)
+                            : [],
+
+                    hasAuthDate:
+                        Boolean(responseUnsafe?.auth_date),
+
+                    hasHash:
+                        Boolean(responseUnsafe?.hash),
+
+                    hasContact:
+                        Boolean(contact),
+
+                    contactType:
+                        typeof contact,
+
+                    contactFields:
+                        contact &&
+                        typeof contact === "object"
+                            ? Object.keys(contact)
+                            : []
+                });
             });
-            return;
-        }
-
-        /*showResult({
-            success: true,
-            contactDataType: typeof contactData,
-            contactDataStructure:
-                inspectContactData(contactData)
-        });*/
-        const contact = contactData?.responseUnsafe?.contact;
-
-        const signedData = contactData?.responseUnsafe;
-
-        showResult({
-            success: true,
-            status: contactData?.status,
-            hasAuthDate: Boolean(signedData?.auth_date),
-            hasHash: Boolean(signedData?.hash),
-            hasContact: Boolean(signedData?.contact),
-            contactFields:
-                signedData?.contact &&
-                typeof signedData.contact === "object"
-                    ? Object.keys(signedData.contact)
-                    : []
         });
-
-        showResult({
-            success: true,
-            status: contactData?.status,
-            contactType: typeof contact,
-            contactFields:
-                contact && typeof contact === "object"
-                    ? Object.keys(contact)
-                    : []
-        });
-    });
-});
-
     </script>
 </body>
 </html>
-```
