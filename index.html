@@ -261,6 +261,21 @@ contactButton.addEventListener("click", () => {
         });*/
         const contact = contactData?.responseUnsafe?.contact;
 
+        const signedData = contactData?.responseUnsafe;
+
+        showResult({
+            success: true,
+            status: contactData?.status,
+            hasAuthDate: Boolean(signedData?.auth_date),
+            hasHash: Boolean(signedData?.hash),
+            hasContact: Boolean(signedData?.contact),
+            contactFields:
+                signedData?.contact &&
+                typeof signedData.contact === "object"
+                    ? Object.keys(signedData.contact)
+                    : []
+        });
+
         showResult({
             success: true,
             status: contactData?.status,
