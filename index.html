@@ -65,8 +65,14 @@
         const registerButton = document.getElementById("registerButton");
         const result = document.getElementById("result");
 
-        const API_URL =
-            "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/register";
+        /*const API_URL =
+            "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/register";*/
+
+        const REGISTER_API_URL =
+        "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/register";
+
+        const CONTACT_API_URL =
+        "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/contact";
 
         const webApp = window.Eitaa?.WebApp;
 
@@ -127,7 +133,7 @@
             result.textContent = "در حال ارسال درخواست به MainApi...";
 
             try {
-                const response = await fetch(API_URL, {
+                const response = await fetch(REGISTER_API_URL, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
