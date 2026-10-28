@@ -65,14 +65,11 @@
         const registerButton = document.getElementById("registerButton");
         const result = document.getElementById("result");
 
-        /*const API_URL =
-            "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/register";*/
-
         const REGISTER_API_URL =
-        "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/register";
+            "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/register";
 
         const CONTACT_API_URL =
-        "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/contact";
+            "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/contact";
 
         const webApp = window.Eitaa?.WebApp;
 
@@ -174,7 +171,7 @@
 
         registerButton.addEventListener("click", registerUser);
 
-        // درخواست اشتراک شماره تماس از ایتا
+        // درخواست اشتراک شماره تماس و ارسال به MainApi
         contactButton.addEventListener("click", () => {
             if (
                 !webApp ||
@@ -187,78 +184,88 @@
                 return;
             }
 
+            if (!rawInitData) {
+                showResult({
+                    success: false,
+                    message:
+                        "initData خالی است. Mini App را داخل ایتا باز کنید."
+                });
+                return;
+            }
+
+            contactButton.disabled = true;
             result.textContent = "منتظر پاسخ ایتا هستیم...";
 
-            webApp.requestContact((success, contactData) => {
+            webApp.requestContact(async (success, contactData) => {
                 if (!success || contactData?.status !== "sent") {
                     showResult({
                         success: false,
                         message: "اشتراک شماره تماس تأیید نشد."
                     });
+
+                    contactButton.disabled = false;
                     return;
                 }
 
                 const signedContactData = contactData.response;
 
-                showResult({
-                    success: true,
-                    status: contactData.status,
-                    signedDataType: typeof signedContactData,
-                    signedDataLength:
-                        typeof signedContactData === "string"
-                            ? signedContactData.length
-                            : null,
-                    signedDataReceived:
-                        typeof signedContactData === "string" &&
-                        signedContactData.length > 0
-                });
-            });
-
-            /*webApp.requestContact((success, contactData) => {
-                if (!success) {
+                if (
+                    typeof signedContactData !== "string" ||
+                    signedContactData.length === 0
+                ) {
                     showResult({
                         success: false,
-                        message: "اشتراک شماره تماس تأیید نشد."
+                        message: "اطلاعات امضاشده تماس دریافت نشد."
                     });
+
+                    contactButton.disabled = false;
                     return;
                 }
 
-                const responseUnsafe = contactData?.responseUnsafe;
-                const contact = responseUnsafe?.contact;
+                result.textContent =
+                    "در حال ارسال اطلاعات تماس به MainApi...";
 
-                // فقط نام فیلدها و وضعیت وجود آن‌ها نمایش داده می‌شود.
-                // شماره تماس، hash و initData نمایش داده نمی‌شوند.
-                showResult({
-                    success: true,
-                    status: contactData?.status,
+                try {
+                    const response = await fetch(CONTACT_API_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            initData: rawInitData,
+                            signedContactData: signedContactData
+                        })
+                    });
 
-                    responseUnsafeType: typeof responseUnsafe,
+                    const responseText = await response.text();
 
-                    responseFields:
-                        responseUnsafe &&
-                        typeof responseUnsafe === "object"
-                            ? Object.keys(responseUnsafe)
-                            : [],
+                    let responseData;
 
-                    hasAuthDate:
-                        Boolean(responseUnsafe?.auth_date),
+                    try {
+                        responseData = responseText
+                            ? JSON.parse(responseText)
+                            : null;
+                    } catch {
+                        responseData = responseText;
+                    }
 
-                    hasHash:
-                        Boolean(responseUnsafe?.hash),
-
-                    hasContact:
-                        Boolean(contact),
-
-                    contactType:
-                        typeof contact,
-
-                    contactFields:
-                        contact &&
-                        typeof contact === "object"
-                            ? Object.keys(contact)
-                            : []
-                });
-            });*/
+                    showResult({
+                        httpStatus: response.status,
+                        success: response.ok,
+                        response: responseData
+                    });
+                } catch (error) {
+                    showResult({
+                        success: false,
+                        message:
+                            "ارتباط با MainApi برقرار نشد. وضعیت API، تونل و CORS را بررسی کنید.",
+                        error: error.message
+                    });
+                } finally {
+                    contactButton.disabled =
+                        typeof webApp.requestContact !== "function";
+                }
+            });
         });
     </script>
 </body>
