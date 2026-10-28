@@ -1,4 +1,4 @@
-﻿```html
+```html
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -7,7 +7,7 @@
 
     <title>آزمایش Mini App ایتا</title>
 
-    <!-- SDK رسمی ایتا -->
+    <!-- SDK ایتا -->
     <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
 
     <style>
@@ -23,6 +23,11 @@
             padding: 12px 18px;
             margin: 8px 0;
             cursor: pointer;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         pre {
@@ -47,6 +52,10 @@
         درخواست اشتراک شماره تماس
     </button>
 
+    <button id="registerButton" disabled>
+        ثبت‌نام در MainApi
+    </button>
+
     <h3>نتیجه آزمایش</h3>
     <pre id="result">هنوز آزمایشی انجام نشده است.</pre>
 
@@ -54,18 +63,22 @@
         const environment = document.getElementById("environment");
         const initDataStatus = document.getElementById("initDataStatus");
         const contactButton = document.getElementById("contactButton");
+        const registerButton = document.getElementById("registerButton");
         const result = document.getElementById("result");
+
+        const API_URL =
+            "https://7k8xz7bn-7232.inc1.devtunnels.ms/api/v1/eitaa/users/register";
 
         const webApp = window.Eitaa?.WebApp;
 
-        // اطلاعات خام فقط در حافظه صفحه نگهداری می‌شوند.
-        // در این مرحله آن‌ها را به سرور ارسال نمی‌کنیم.
+        // initData فقط در حافظه صفحه نگهداری می‌شود.
         let rawInitData = "";
 
         function showResult(data) {
             result.textContent = JSON.stringify(data, null, 2);
         }
 
+        // بررسی محیط اجرا و دریافت initData
         if (!webApp) {
             environment.textContent =
                 "SDK ایتا در دسترس نیست. صفحه را داخل Mini App ایتا باز کنید.";
@@ -77,14 +90,16 @@
 
             rawInitData = webApp.initData || "";
 
-            environment.textContent =
-                "SDK ایتا شناسایی شد.";
+            environment.textContent = "SDK ایتا شناسایی شد.";
 
             initDataStatus.textContent = rawInitData
                 ? `initData دریافت شد؛ طول رشته: ${rawInitData.length} کاراکتر`
                 : "initData خالی است؛ نحوه باز کردن Mini App را بررسی کنید.";
 
-            contactButton.disabled = typeof webApp.requestContact !== "function";
+            contactButton.disabled =
+                typeof webApp.requestContact !== "function";
+
+            registerButton.disabled = rawInitData.length === 0;
 
             showResult({
                 sdkAvailable: true,
@@ -98,8 +113,65 @@
             });
         }
 
+        // ثبت‌نام کاربر در MainApi
+        async function registerUser() {
+            if (!rawInitData) {
+                showResult({
+                    success: false,
+                    message: "initData خالی است. Mini App را داخل ایتا باز کنید."
+                });
+                return;
+            }
+
+            registerButton.disabled = true;
+            result.textContent = "در حال ارسال درخواست به MainApi...";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        initData: rawInitData
+                    })
+                });
+
+                const responseText = await response.text();
+
+                let responseData;
+
+                try {
+                    responseData = responseText
+                        ? JSON.parse(responseText)
+                        : null;
+                } catch {
+                    responseData = responseText;
+                }
+
+                showResult({
+                    httpStatus: response.status,
+                    success: response.ok,
+                    response: responseData
+                });
+            } catch (error) {
+                showResult({
+                    success: false,
+                    message:
+                        "ارتباط با MainApi برقرار نشد. وضعیت API، تونل و CORS را بررسی کنید.",
+                    error: error.message
+                });
+            } finally {
+                registerButton.disabled = rawInitData.length === 0;
+            }
+        }
+
+        registerButton.addEventListener("click", registerUser);
+
+        // درخواست اشتراک شماره تماس از ایتا
         contactButton.addEventListener("click", () => {
-            if (!webApp || typeof webApp.requestContact !== "function") {
+            if (!webApp ||
+                typeof webApp.requestContact !== "function") {
                 showResult({
                     success: false,
                     message: "قابلیت requestContact در دسترس نیست."
@@ -113,13 +185,13 @@
                 if (!success) {
                     showResult({
                         success: false,
-                        message: "کاربر درخواست اشتراک تماس را تأیید نکرد."
+                        message:
+                            "کاربر درخواست اشتراک تماس را تأیید نکرد."
                     });
                     return;
                 }
 
-                // رشته اصلی را تغییر نمی‌دهیم؛ فقط یک نسخه
-                // برای نمایش امن در صفحه می‌سازیم.
+                // اطلاعات تماس کامل را نمایش نمی‌دهیم.
                 const safeData = {
                     success: true,
                     contactDataType: typeof contactData,
@@ -133,7 +205,6 @@
                     const params = new URLSearchParams(contactData);
 
                     safeData.fields = [...params.keys()];
-
                     safeData.values = {};
 
                     for (const [key, value] of params.entries()) {
@@ -143,7 +214,7 @@
                                     ? "*".repeat(value.length - 4) +
                                       value.slice(-4)
                                     : "****";
-                        } else if (/hash|signature/i.test(key)) {
+                        } else if (/hash|signature|token/i.test(key)) {
                             safeData.values[key] = "[مخفی]";
                         } else {
                             safeData.values[key] = value;
@@ -151,12 +222,12 @@
                     }
                 } else {
                     safeData.message =
-                        "پاسخ رشته‌ای نیست؛ شکل داده را در محیط امن بررسی کنید.";
+                        "پاسخ رشته‌ای نیست؛ ساختار آن باید جداگانه بررسی شود.";
                 }
 
                 showResult(safeData);
 
-                // فعلاً contactData را به API ارسال نکن.
+                // در این نسخه، اطلاعات تماس به API ارسال نمی‌شود.
             });
         });
     </script>
