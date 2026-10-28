@@ -253,11 +253,22 @@ contactButton.addEventListener("click", () => {
             return;
         }
 
-        showResult({
+        /*showResult({
             success: true,
             contactDataType: typeof contactData,
             contactDataStructure:
                 inspectContactData(contactData)
+        });*/
+        const contact = contactData?.responseUnsafe?.contact;
+
+        showResult({
+            success: true,
+            status: contactData?.status,
+            contactType: typeof contact,
+            contactFields:
+                contact && typeof contact === "object"
+                    ? Object.keys(contact)
+                    : []
         });
     });
 });
